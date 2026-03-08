@@ -38,6 +38,16 @@ const mocks = vi.hoisted(() => {
     loadModelRegistry: vi
       .fn()
       .mockResolvedValue({ models: [], availableKeys: new Set(), registry: {} }),
+    loadModelCatalog: vi.fn().mockResolvedValue([
+      {
+        provider: "openai-codex",
+        id: "gpt-5.4",
+        name: "gpt-5.4",
+        input: ["text"],
+        contextWindow: 272000,
+        reasoning: true,
+      },
+    ]),
     resolveConfiguredEntries: vi.fn().mockReturnValue({
       entries: [
         {
@@ -66,6 +76,10 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("../../config/config.js", () => ({
   loadConfig: mocks.loadConfig,
+}));
+
+vi.mock("../../agents/model-catalog.js", () => ({
+  loadModelCatalog: mocks.loadModelCatalog,
 }));
 
 vi.mock("../../agents/auth-profiles.js", async (importOriginal) => {
@@ -108,6 +122,26 @@ vi.mock("../../agents/pi-embedded-runner/model.js", async (importOriginal) => {
 import { modelsListCommand } from "./list.list-command.js";
 
 describe("modelsListCommand forward-compat", () => {
+  it("includes synthetic catalog-only codex gpt-5.4 entries in --all output", async () => {
+    const runtime = { log: vi.fn(), error: vi.fn() };
+
+    await modelsListCommand({ all: true, json: true }, runtime as never);
+
+    expect(mocks.loadModelCatalog).toHaveBeenCalled();
+    expect(mocks.printModelTable).toHaveBeenCalled();
+    const rows = mocks.printModelTable.mock.calls.at(-1)?.[0] as Array<{
+      key: string;
+      missing: boolean;
+    }>;
+
+    expect(rows).toContainEqual(
+      expect.objectContaining({
+        key: "openai-codex/gpt-5.4",
+        missing: false,
+      }),
+    );
+  });
+
   it("does not mark configured codex model as missing when forward-compat can build a fallback", async () => {
     const runtime = { log: vi.fn(), error: vi.fn() };
 

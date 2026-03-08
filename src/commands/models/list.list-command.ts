@@ -1,5 +1,6 @@
 import type { Api, Model } from "@mariozechner/pi-ai";
 import type { ModelRegistry } from "@mariozechner/pi-coding-agent";
+import { loadModelCatalog } from "../../agents/model-catalog.js";
 import { parseModelRef } from "../../agents/model-selection.js";
 import { resolveModelWithRegistry } from "../../agents/pi-embedded-runner/model.js";
 import type { RuntimeEnv } from "../../runtime.js";
@@ -58,6 +59,7 @@ export async function modelsListCommand(
     );
   }
   const discoveredKeys = new Set(models.map((model) => modelKey(model.provider, model.id)));
+  const discoveredByKey = new Map(models.map((model) => [modelKey(model.provider, model.id), model]));
 
   const { entries } = resolveConfiguredEntries(cfg);
   const configuredByKey = new Map(entries.map((entry) => [entry.key, entry]));
@@ -65,7 +67,8 @@ export async function modelsListCommand(
   const rows: ModelRow[] = [];
 
   if (opts.all) {
-    const sorted = [...models].toSorted((a, b) => {
+    const catalog = await loadModelCatalog({ config: cfg });
+    const sorted = [...catalog].toSorted((a, b) => {
       const p = a.provider.localeCompare(b.provider);
       if (p !== 0) {
         return p;
@@ -73,24 +76,34 @@ export async function modelsListCommand(
       return a.id.localeCompare(b.id);
     });
 
-    for (const model of sorted) {
-      if (providerFilter && model.provider.toLowerCase() !== providerFilter) {
+    for (const entry of sorted) {
+      if (providerFilter && entry.provider.toLowerCase() !== providerFilter) {
         continue;
       }
-      if (opts.local && !isLocalBaseUrl(model.baseUrl)) {
-        continue;
+      const key = modelKey(entry.provider, entry.id);
+      const discoveredModel = discoveredByKey.get(key);
+      if (opts.local) {
+        if (!discoveredModel) {
+          continue;
+        }
+        if (!isLocalBaseUrl(discoveredModel.baseUrl)) {
+          continue;
+        }
       }
-      const key = modelKey(model.provider, model.id);
       const configured = configuredByKey.get(key);
       rows.push(
         toModelRow({
-          model,
+          model: (discoveredModel ?? {
+            ...entry,
+            baseUrl: "",
+          }) as Model<Api>,
           key,
           tags: configured ? Array.from(configured.tags) : [],
           aliases: configured?.aliases ?? [],
           availableKeys,
           cfg,
           authStore,
+          allowProviderAvailabilityFallback: !discoveredKeys.has(key),
         }),
       );
     }
