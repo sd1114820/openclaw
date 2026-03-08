@@ -59,7 +59,9 @@ export async function modelsListCommand(
     );
   }
   const discoveredKeys = new Set(models.map((model) => modelKey(model.provider, model.id)));
-  const discoveredByKey = new Map(models.map((model) => [modelKey(model.provider, model.id), model]));
+  const discoveredByKey = new Map(
+    models.map((model) => [modelKey(model.provider, model.id), model]),
+  );
 
   const { entries } = resolveConfiguredEntries(cfg);
   const configuredByKey = new Map(entries.map((entry) => [entry.key, entry]));
