@@ -148,7 +148,7 @@ describe("modelsListCommand forward-compat", () => {
     await modelsListCommand({ json: true }, runtime as never);
 
     expect(mocks.printModelTable).toHaveBeenCalled();
-    const rows = mocks.printModelTable.mock.calls[0]?.[0] as Array<{
+    const rows = mocks.printModelTable.mock.calls.at(-1)?.[0] as Array<{
       key: string;
       tags: string[];
       missing: boolean;

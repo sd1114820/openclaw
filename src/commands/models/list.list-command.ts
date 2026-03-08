@@ -95,6 +95,7 @@ export async function modelsListCommand(
         toModelRow({
           model: (discoveredModel ?? {
             ...entry,
+            input: entry.input ?? [],
             baseUrl: "",
           }) as Model<Api>,
           key,
